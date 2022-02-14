@@ -4,7 +4,7 @@ from tkinter import SW
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.backends.backend_pdf
-import tqdm
+from tqdm import tqdm
 import sys
 
 def plot_style(x_label: str, y_label: str) -> None:
@@ -19,7 +19,7 @@ def plot_style(x_label: str, y_label: str) -> None:
 	if len(labels)>0:
 		plt.legend(frameon=False)
 
-def plotAccLoss(trainInput:list, testInput:list, putVar:str, output_dir: str='models') - > None:
+def plotAccLoss(trainInput:list, testInput:list, putVar:str, output_dir: str='models') -> None:
 	""" Compare the loss and accuracy between training and testing.
 	Args:
 	    trainInput (list): list of loss or accuracy values of the training sample for each epoch
@@ -47,7 +47,7 @@ def plotAccLoss(trainInput:list, testInput:list, putVar:str, output_dir: str='mo
 	#plt.ylim(0.5, 0.9)
 	plt.savefig('{}/{}_compare.pdf'.format(output_dir, putVar))
 
-def plotOutputScore(score: list, labels: list, output_dir:str ='output') -> None:
+def plotOutputScore(score: list, labels: list, weights: list, output_dir:str ='output') -> None:
 	""" Evaluation plotting.
 	Args:
 	    score (list): output score for each jet at the evaluation
@@ -56,6 +56,7 @@ def plotOutputScore(score: list, labels: list, output_dir:str ='output') -> None
 	"""
 
 	outputScore = np.array(score)
+	weights = np.array(weights)
 	labels = np.array(labels)
 	signal_score = outputScore[labels==1]
 	bkg_score = outputScore[labels==0]
@@ -66,29 +67,31 @@ def plotOutputScore(score: list, labels: list, output_dir:str ='output') -> None
 	N_signal = []
 	N_bkg = []
 	significance = []
-
+        
 	## In most analysis, for MC signal and backgorund, they need to be reweigited. Apply the weight here if needed. Put 1 as temporary default value
-	sWeight = 1 
-	bWeight = 1
+	sWeight = weights[labels==1]
+	bWeight = weights[labels==0]
 
 	scanValue = np.linspace(0, 1, 100)
 	for i in tqdm(range(len(scanValue)), desc="======= Calculating ROC curve score"):
-		N_tagged = len(labels[outputScore>scanValue])
+		N_tagged = len(labels[outputScore>scanValue[i]])
+		N_tagged_sweighted = np.sum(sWeight[signal_score>scanValue[i]])
+		N_tagged_bweighted = np.sum(bWeight[bkg_score>scanValue[i]])
 		if N_tagged == 0:
 			break
 		N_sig_tagged = len(signal_score[signal_score>scanValue[i]])
 
 		## selected significance = s/sqrt(s+b)
-		significance.append(N_sig_tagged * sWeight / np.sqrt(N_sig_tagged*sWeight + (N_tagged-N_sig_tagged)*bWeight))
-		N_signal.append(N_sig_tagged*sWeight)
-		N_bkg.append((N_tagged-N_sig_tagged)*bWeight)
+		significance.append(N_sig_tagged * N_tagged_sweighted / np.sqrt(N_sig_tagged*N_tagged_sweighted + (N_tagged-N_sig_tagged)*N_tagged_bweighted))
+		N_signal.append(N_sig_tagged*N_tagged_sweighted)
+		N_bkg.append((N_tagged-N_sig_tagged)*N_tagged_bweighted)
 		cut.append(scanValue[i])
 		sig_eff.append(N_sig_tagged/len(signal_score))
 		purity.append(N_sig_tagged/N_tagged)
-		purity_weighted.append(N_sig_tagged*sWeight / (N_sig_tagged*sWeight + (N_tagged - N_sig_tagged)*bWeight))
+		purity_weighted.append(N_sig_tagged*N_tagged_sweighted / (N_sig_tagged*N_tagged_sweighted + (N_tagged - N_sig_tagged)*N_tagged_bweighted))
 
 	print("======= Plotting testing performance")
-	pdf = matplotlib.backends.backend_pdf.PdfPages("{}/testing_results.pdf".format(output_dir))
+	pdf = matplotlib.backends.backend_pdf.PdfPages("{}/weight_results.pdf".format(output_dir))
 
 	nbins=200
 	## Output score comparison between signal and background
@@ -110,7 +113,7 @@ def plotOutputScore(score: list, labels: list, output_dir:str ='output') -> None
 	ax.tick_params(axis='y', labelcolor=color)
 
 	ax2 = ax.twinx()
-	color = 'tab:black'
+	color = 'tab:green'
 	ax2.set_ylabel('N. of tagged events', color=color)
 	ax2.plot(cut, N_signal, color='blue', label='signal')
 	ax2.plot(cut, N_bkg, color='orange', label='background')
