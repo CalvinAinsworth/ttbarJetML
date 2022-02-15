@@ -82,13 +82,13 @@ def plotOutputScore(score: list, labels: list, weights: list, output_dir:str ='o
 		N_sig_tagged = len(signal_score[signal_score>scanValue[i]])
 
 		## selected significance = s/sqrt(s+b)
-		significance.append(N_sig_tagged * N_tagged_sweighted / np.sqrt(N_sig_tagged*N_tagged_sweighted + (N_tagged-N_sig_tagged)*N_tagged_bweighted))
-		N_signal.append(N_sig_tagged*N_tagged_sweighted)
-		N_bkg.append((N_tagged-N_sig_tagged)*N_tagged_bweighted)
+		significance.append(N_tagged_sweighted / np.sqrt(N_tagged_sweighted + (N_tagged_bweighted))
+		N_signal.append(N_tagged_sweighted)
+		N_bkg.append(N_tagged_bweighted)
 		cut.append(scanValue[i])
 		sig_eff.append(N_sig_tagged/len(signal_score))
 		purity.append(N_sig_tagged/N_tagged)
-		purity_weighted.append(N_sig_tagged*N_tagged_sweighted / (N_sig_tagged*N_tagged_sweighted + (N_tagged - N_sig_tagged)*N_tagged_bweighted))
+		purity_weighted.append(N_tagged_sweighted / (N_tagged_sweighted + (N_tagged_bweighted))
 
 	print("======= Plotting testing performance")
 	pdf = matplotlib.backends.backend_pdf.PdfPages("{}/weight_results.pdf".format(output_dir))
